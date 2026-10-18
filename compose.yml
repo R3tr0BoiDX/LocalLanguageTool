@@ -9,4 +9,19 @@ services:
       Java_Xms: ${JAVA_XMS:-512m}
       Java_Xmx: ${JAVA_XMX:-2g}
     volumes:
-      - ${NGRAMS_DIR:-./ngrams}:/ngrams
+      - ${NGRAMS_DIR:-./ngrams}:/ngrams:ro
+    # Heap + JVM overhead + fastText; keeps the rest of the Pi responsive.
+    mem_limit: ${LT_MEM_LIMIT:-3g}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "--data", "language=en-US&text=a simple test", "http://localhost:8010/v2/check"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      # Startup with n-grams can take a while on a Pi / SD card.
+      start_period: 120s
+    # Avoid unbounded log growth on the SD card.
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
