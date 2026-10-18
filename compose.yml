@@ -1,10 +1,27 @@
 services:
   languagetool:
-    image: silviof/docker-languagetool:latest
+    image: erikvl87/languagetool:latest
     restart: unless-stopped
-    command: java -cp languagetool-server.jar org.languagetool.server.HTTPServer --port 8010 --public --allow-origin '*' --config /etc/http_server.cfg
     ports:
-      - 127.0.0.1:8010:8010
+      - ${LT_BIND:-0.0.0.0}:${LT_PORT:-8010}:8010
+    environment:
+      langtool_languageModel: /ngrams
+      Java_Xms: ${JAVA_XMS:-512m}
+      Java_Xmx: ${JAVA_XMX:-2g}
     volumes:
-      - ./ngrams:/ngrams
-      - ./http_server.cfg:/etc/http_server.cfg
+      - ${NGRAMS_DIR:-./ngrams}:/ngrams:ro
+    # Heap + JVM overhead + fastText; keeps the rest of the Pi responsive.
+    mem_limit: ${LT_MEM_LIMIT:-3g}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "--data", "language=en-US&text=a simple test", "http://localhost:8010/v2/check"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      # Startup with n-grams can take a while on a Pi / SD card.
+      start_period: 120s
+    # Avoid unbounded log growth on the SD card.
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
